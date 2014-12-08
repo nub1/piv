@@ -55,7 +55,7 @@ raw_input('Press any key to continue:')
 print ar[9][1][2]
 c = ar[1][3][4]
 print c['name1']
-c['name1'] = "Meine Daten"
+c['name1'] = "My data"
 #c['gold'] = 1337
 print str(ar[1][3][4])
 for i in xrange(0,99):
