@@ -5,14 +5,48 @@ import random
 import threading
 import signal
 import sys
+import socket
+import threading
 
 # variables:
-size = 500
-tickcount = 15.0
+size = 10
+tickcount = 8.0
 dropchance = 1
+server = None
+players = []
+tickthread = None
+
+class Player:
+    pass
+
+def handle_clientConnection(s):
+    s.send("piv server asks for authentication: \n")
+    request = s.recv(1024).strip()
+    # TODO: switch/case with dictionary in python - authenticate
+    if request == "list":
+        s.send("Current players: \n")
+        for i in players:
+            s.send(str(i.id)+":"+str(i.nick)+"\n")
+    if request == "help":
+        s.send("list - list players\n")
+        s.send("help - this help message\n")
+        s.send("me - information about your connection\n")
+    if request == "me": 
+        s.send(s.getpeername()[0])
+        s.send(":")
+        s.send(str(s.getpeername()[1]))
+        s.send("\n")
+
+    s.send("bye!\n")
+    s.close()
 
 def signal_handler(signal, frame):
         print('You pressed Ctrl+C!')
+        global tickthread
+        global server
+        tickthread.cancel()
+        tickthread.join()
+        server.close()
         sys.exit(0)
 
 def getFieldInfo(grid):
@@ -37,16 +71,22 @@ def dropRessources(grid, itemToDrop):
         grid[r1][r2]['iron'] += random.randint(0,10)
 
 def tick():
-    threading.Timer(tickcount, tick).start()
+    global tickthread
+    tickthread = threading.Timer(tickcount, tick)
+    tickthread.daemon = True
+    tickthread.start()
     print "Dropping " + str(itemsToDrop) + " ressources on fields...",
     dropRessources(dt,itemsToDrop)
     print "done!"
+
+
+
 
 # handle ctrl+c (for saving state)
 signal.signal(signal.SIGINT, signal_handler)
 
 # datatype for grid (name, iron, copper, gold)
-dt = numpy.dtype( [('name1',numpy.str_, 16), ('iron','int'), ('copper','int'), ('gold','int')] )
+dt = numpy.dtype( [('name',numpy.str_, 16), ('iron','int'), ('copper','int'), ('gold','int')] )
 
 # init grid
 print "Initializing grid (size "+str(size*size)+")...",
@@ -59,6 +99,27 @@ print "Dropping " + str(itemsToDrop) + " ressources on fields...",
 tick()
 print "done!"
 
+# player array init
+p = Player()
+p.nick = "test"
+p.pw = "pw"
+p.id = 0
+players.append(p)
+p = Player()
+p.nick = "test2"
+p.pw = "pw"
+p.id = 1
+players.append(p)
+
+# set up listener and client connection handler
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind(("0.0.0.0",8000))
+server.listen(5)
+while True:
+    client,addr = server.accept()
+    client_handler = threading.Thread(target=handle_clientConnection, args=(client,))
+    client_handler.start()
+
 
 
 
@@ -67,8 +128,8 @@ print "done!"
 print "############# RANDOM TESTS HERE ###############"
 print dt[9][1]
 c = dt[1][3]
-print c['name1']
-c['name1'] = "My data"
+print c['name']
+c['name'] = "My data"
 c['gold'] = 1337
 print str(dt[1][3])
 for i in xrange(0,99):
